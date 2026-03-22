@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 segment_customers.py)",
+      "Bash(py segment_customers.py)",
+      "Bash(where python:*)",
+      "Bash(where python3:*)",
+      "Bash(where py:*)",
+      "Bash(ls /c/Python*)",
+      "Read(//c/Users/msall/AppData/Local/Programs/**)",
+      "Bash(cmd.exe /c \"cd /d C:\\\\Users\\\\msall\\\\Documents\\\\leroi-project && python segment_customers.py\" 2>&1)",
+      "Bash(cmd.exe /c \"C:\\\\Users\\\\msall\\\\AppData\\\\Local\\\\Microsoft\\\\WindowsApps\\\\python.exe C:\\\\Users\\\\msall\\\\Documents\\\\leroi-project\\\\segment_customers.py C:\\\\Users\\\\msall\\\\Documents\\\\leroi-project\\\\customers.csv\" 2>&1)",
+      "Bash(python segment_customers.py)",
+      "Bash(python:*)",
+      "Bash(pip install:*)"
+    ]
+  }
+}
