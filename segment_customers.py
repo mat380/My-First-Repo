@@ -1,12 +1,14 @@
 import csv
+import io
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
 INPUT_FILE = "customers.csv"
-REQUIRED_COLUMNS = {"first_name", "last_name", "last_purchase_date", "total_spend", "loyalty_points"}
 
 ACTIVE_DAYS = 30
 LAPSED_DAYS = 60
+
+LEGACY_COLUMNS = {"first_name", "last_name", "last_purchase_date", "total_spend", "loyalty_points"}
 
 
 def parse_date(value: str) -> date:
@@ -18,27 +20,65 @@ def parse_date(value: str) -> date:
     raise ValueError(f"Unrecognized date format: '{value}'")
 
 
-def load_customers(filepath: str) -> list[dict]:
+def load_cova_export(filepath: str) -> tuple[list[dict], list[str]]:
+    """Load a Cova Customer Activity List, skipping the parameter header block."""
+    with open(filepath, newline="", encoding="utf-8") as f:
+        lines = f.readlines()
+
+    header_idx = next(
+        (i for i, line in enumerate(lines) if line.strip().startswith("Customer,")),
+        None,
+    )
+    if header_idx is None:
+        sys.exit("Could not find data header row in Cova export.")
+
+    reader = csv.DictReader(io.StringIO("".join(lines[header_idx:])))
+    rows = list(reader)
+    return rows, list(reader.fieldnames or [])
+
+
+def load_customers(filepath: str) -> tuple[list[dict], list[str], str]:
+    """Load customers, auto-detecting Cova export vs legacy format."""
+    with open(filepath, newline="", encoding="utf-8") as f:
+        first_line = f.readline().strip()
+
+    if first_line == "Parameters:":
+        rows, fieldnames = load_cova_export(filepath)
+        return rows, fieldnames, "cova"
+
     with open(filepath, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        if not REQUIRED_COLUMNS.issubset(set(reader.fieldnames or [])):
-            missing = REQUIRED_COLUMNS - set(reader.fieldnames or [])
+        fieldnames = list(reader.fieldnames or [])
+        if not LEGACY_COLUMNS.issubset(set(fieldnames)):
+            missing = LEGACY_COLUMNS - set(fieldnames)
             sys.exit(f"Missing columns in input file: {missing}")
-        return list(reader)
+        return list(reader), fieldnames, "legacy"
 
 
-def segment(customers: list[dict], today: date) -> tuple[list, list, list]:
-    active, lapsed, lost = [], [], []
-    for row in customers:
+def get_days_since(row: dict, fmt: str, today: date) -> int | None:
+    if fmt == "cova":
         try:
-            purchase_date = parse_date(row["last_purchase_date"])
+            return int(row["Days Since Last Visit"])
+        except (ValueError, KeyError):
+            print(f"Skipping row ({row.get('Customer')}): invalid 'Days Since Last Visit'")
+            return None
+    else:
+        try:
+            return (today - parse_date(row["last_purchase_date"])).days
         except ValueError as e:
             print(f"Skipping row ({row.get('first_name')} {row.get('last_name')}): {e}")
+            return None
+
+
+def segment(customers: list[dict], fmt: str, today: date) -> tuple[list, list, list]:
+    active, lapsed, lost = [], [], []
+    for row in customers:
+        days = get_days_since(row, fmt, today)
+        if days is None:
             continue
-        days_since = (today - purchase_date).days
-        if days_since <= ACTIVE_DAYS:
+        if days <= ACTIVE_DAYS:
             active.append(row)
-        elif days_since <= LAPSED_DAYS:
+        elif days <= LAPSED_DAYS:
             lapsed.append(row)
         else:
             lost.append(row)
@@ -58,12 +98,10 @@ def main() -> None:
     today = date.today()
 
     print(f"Reading '{filepath}' (reference date: {today})\n")
-    customers = load_customers(filepath)
+    customers, fieldnames, fmt = load_customers(filepath)
+    print(f"Format detected: {fmt} ({len(customers)} rows)\n")
 
-    with open(filepath, newline="", encoding="utf-8") as f:
-        fieldnames = csv.DictReader(f).fieldnames
-
-    active, lapsed, lost = segment(customers, today)
+    active, lapsed, lost = segment(customers, fmt, today)
 
     print("Writing segments:")
     write_segment("customers_active.csv", active, fieldnames)
