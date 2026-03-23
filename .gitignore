@@ -1,0 +1,31 @@
+# -----------------------------------------------
+# Raw data exports — do not commit
+# -----------------------------------------------
+
+# Cova POS raw exports
+Customer Activity List*.csv
+customers_from_history.csv
+customers.csv
+
+# SpringBig reports
+autoconnect_*.csv
+autoconnect_*.xlsx
+*.xlsx
+
+# -----------------------------------------------
+# Pipeline outputs — keep these
+# -----------------------------------------------
+
+# Segment outputs
+!customers_active.csv
+!customers_lapsed.csv
+!customers_lost.csv
+
+# High-value filtered lists
+!lost_high_value.csv
+!lapsed_high_value.csv
+
+# Call sheets and outreach lists
+!call_sheet_*.csv
+!top25_personal_outreach.csv
+!data_quality_review.csv
